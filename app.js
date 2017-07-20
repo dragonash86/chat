@@ -52,11 +52,9 @@ db.on("error",function (err) {
 });
 //서버 시작
 // app.listen(3000);
-// console.log("Server running on port 3000");
 http.listen('3000', function(){
-  console.log("server on!");
+  console.log("Server running on port 3000");
 });
-
 
 //채팅
 var count = 1;
@@ -64,11 +62,9 @@ io.on('connection', function(socket){
   console.log('user connected: ', socket.id);
   var name = "user" + count ++;
   io.to(socket.id).emit('change name',name);
-
   socket.on('disconnect', function(){
     console.log('user disconnected: ', socket.id);
   });
-  
   socket.on('send message', function(name,text){
     var msg = name + ' : ' + text;
     console.log(msg);
@@ -319,6 +315,11 @@ app.post('/roomCreat', function(req, res) {
 		delete : "no",
 		start : "대기"
    	});
+		
+    for (var i=0; i<=100; i++) {
+    	room.build[i] = {locIndex : i, level : 0};
+    }
+
     room.save(function(err) {
         if (err) {
         	res.send('<script>alert("에러남");location.href="/join";</script>');
@@ -385,6 +386,37 @@ app.post('/startRoom', function(req, res) {
 		Room.update({_id : roomId}, {$set : {start : "진행 중", turn : req.user.user_nick}}, function(err) {
 			res.redirect('/room?roomId='+roomId);
 		});
+	} else {
+		res.render('login');
+	}
+});
+//생산
+app.get('/produce', function(req, res) {
+	if (req.user) {
+		var roomId = req.query.roomId;
+		var locIndex = parseInt(req.query.locIndex);
+		var level = parseInt(req.query.level);
+		var reqEnergy;
+		var reqGold;
+		if (level === 1) { 
+			reqGold = 10;
+			reqEnergy = 2;
+		} else if (level === 2) {
+			reqGold = 20;
+			reqEnergy = 3;
+		} else if (level === 3) {
+			reqGold = 50;
+			reqEnergy = 5;
+		}
+		if (req.query.energy >= reqEnergy) {
+			if (req.query.gold >= reqGold) {
+				Room.findOneAndUpdate({_id : roomId, build : {$elemMatch : {locIndex : locIndex}}}, {$set : {'build.$.level' : level}, $inc : {'player_1.gold' : - reqGold, 'player_1.energy' : - reqEnergy}}, function(err, room) {
+					res.redirect('/room?roomId='+roomId);
+				});
+			} else {
+				res.send('<script>alert("골드가 부족합니다.");location.href="/room?roomId='+roomId+'";</script>');
+			}
+		} else {res.send('<script>alert("에너지가 부족합니다.");location.href="/room?roomId='+roomId+'";</script>');}
 	} else {
 		res.render('login');
 	}
